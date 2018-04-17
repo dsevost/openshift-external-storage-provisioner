@@ -12,5 +12,5 @@ oc new-build \
 oc new-build \
     -e DEBUG=1 \
     -e GO_GLOBAL_PROJECT_NAME=github.com/kubernetes-incubator/external-storage \
-    -e TARGETS='nfs/cmd/nfs-provisioner' \
+    -e TARGETS='nfs/cmd/nfs-provisioner iscsi/targetd' \
     golang-s2i~https://github.com/kubernetes-incubator/external-storage

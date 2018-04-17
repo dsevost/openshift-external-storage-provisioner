@@ -1,0 +1,291 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: external-storage
+parameters:
+- name: STORAGE_BUILD_NAME
+  value: external-storage-build
+- name: BUILDER_GO
+  value: golang-s2i
+- name: BUILDER_GO_TAG
+  value: latest
+- name: STORAGE_BUILD_GIT_REPO
+  value: https://github.com/kubernetes-incubator/external-storage
+- name: GO_GLOBAL_PROJECT_NAME
+  value: github.com/kubernetes-incubator/external-storage
+- name: GO_TARGETS
+  value: iscsi/targetd nfs/cmd/nfs-provisioner
+- name: DEBUG_OUTPUT
+  description: Any non blank value means DEBUG_OUTPUT=enabled
+  value: enabled
+- name: NFS_BASE_IMAGE_GIT_REPO
+  value: https://github.com/dsevost/openshift-external-storage-provisioner
+- name: NFS_BASE_IMAGE_CONTEXT_DIR
+  value: nfs
+- name: BASE_IMAGE
+  value: fedora
+- name: BASE_IMAGE_TAG
+  value: "27"
+objects:
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      build: ${STORAGE_BUILD_NAME}
+    name: ${STORAGE_BUILD_NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${STORAGE_BUILD_NAME}:latest
+    source:
+      git:
+        uri: ${STORAGE_BUILD_GIT_REPO}
+      type: Git
+    strategy:
+      sourceStrategy:
+        env:
+        - name: DEBUG
+          value: ${DEBUG_OUTPUT}
+        - name: GO_GLOBAL_PROJECT_NAME
+          value: ${GO_GLOBAL_PROJECT_NAME}
+        - name: TARGETS
+          value: ${GO_TARGETS}
+        from:
+          kind: ImageStreamTag
+          name: ${BUILDER_GO}:${BUILDER_GO_TAG}
+#          namespace: external-storage
+      type: Source
+    triggers:
+    - type: ConfigChange
+    - imageChange:
+        from:
+          kind: ImageStreamTag
+          name: ${BUILDER_GO}:${BUILDER_GO_TAG}
+      type: ImageChange
+#    - imageChange: {}
+#      type: ImageChange
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: ${STORAGE_BUILD_NAME}
+    name: ${STORAGE_BUILD_NAME}
+  spec:
+    tags:
+    - from:
+        kind: DockerImage
+        name: ${STORAGE_BUILD_NAME}:latest
+      name: latest
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      build: nfs-base-image
+    name: nfs-base-image
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: nfs-base-image:latest
+    source:
+      contextDir: ${NFS_BASE_IMAGE_CONTEXT_DIR}
+      git:
+        uri: ${NFS_BASE_IMAGE_GIT_REPO}
+      type: Git
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+      type: Docker
+    triggers:
+    - imageChange:
+        from:
+          kind: ImageStreamTag
+          name: ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+      type: ImageChange
+    - type: ConfigChange
+#    - imageChange: {}
+#      type: ImageChange
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: nfs-base-image
+    name: nfs-base-image
+  spec:
+    tags:
+    - from:
+        kind: DockerImage
+        name: nfs-base-image:latest
+      name: latest
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      build: nfs-provisioner
+    name: nfs-provisioner
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: nfs-provisioner:latest
+    source:
+      dockerfile: |-
+        FROM fake-repo
+        COPY nfs-provisioner /
+      images:
+      - from:
+          kind: ImageStreamTag
+          name: ${STORAGE_BUILD_NAME}:latest
+#          namespace: external-storage
+        paths:
+        - destinationDir: .
+          sourcePath: /opt/app-root/src/go/bin/nfs-provisioner
+      type: Dockerfile
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: nfs-base-image:latest
+      type: Docker
+    triggers:
+    - imageChange:
+        from:
+          kind: ImageStreamTag
+          name: ${STORAGE_BUILD_NAME}:latest
+#          namespace: external-storage
+      type: ImageChange
+    - imageChange:
+        from:
+          kind: ImageStreamTag
+          name: ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+      type: ImageChange
+      type: ImageChange
+    - type: ConfigChange
+#    - imageChange: {}
+#      type: ImageChange
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: nfs-provisioner
+    name: nfs-provisioner
+  spec:
+    tags:
+    - from:
+        kind: DockerImage
+        name: nfs-provisioner:latest
+      name: latest
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    name: ${BASE_IMAGE}
+  spec:
+    lookupPolicy:
+      local: false
+    tags:
+    - from:
+        kind: DockerImage
+        name: ${BASE_IMAGE}:${BASE_IMAGE_TAG}
+      name: ${BASE_IMAGE_TAG}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: nfs-provisioner
+    name: nfs-provisioner
+  spec:
+    ports:
+    - name: nfs
+      port: 2049
+      protocol: TCP
+      targetPort: 2049
+    - name: mountd
+      port: 20048
+      protocol: TCP
+      targetPort: 20048
+    - name: rpcbind
+      port: 111
+      protocol: TCP
+      targetPort: 111
+    - name: rpcbind-udp
+      port: 111
+      protocol: UDP
+      targetPort: 111
+    selector:
+      app: nfs-provisioner
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: nfs-provisioner
+  spec:
+    replicas: 0
+    selector:
+      app: nfs-provisioner
+    strategy:
+      type: Recreate
+    serviceAccount: nfs-provisioner
+    nodeSelector:
+      nfs-provisioner: node01
+    template:
+      metadata:
+        labels:
+          app: nfs-provisioner
+      spec:
+        containers:
+        - args:
+          - -provisioner=example.com/nfs
+          env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: SERVICE_NAME
+            value: nfs-provisioner
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          image: nfs-provisioner:latest
+          imagePullPolicy: IfNotPresent
+          name: nfs-provisioner
+          ports:
+          - containerPort: 2049
+            name: nfs
+            protocol: TCP
+          - containerPort: 20048
+            name: mountd
+            protocol: TCP
+          - containerPort: 111
+            name: rpcbind
+            protocol: TCP
+          - containerPort: 111
+            name: rpcbind-udp
+            protocol: UDP
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+              - DAC_READ_SEARCH
+              - SYS_RESOURCE
+          volumeMounts:
+          - mountPath: /export
+            name: export-volume
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        volumes:
+        - hostPath:
+            path: /srv
+            type: ""
+          name: export-volume
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: nfs-provisioner
