@@ -1,4 +1,4 @@
-# OpenShift using:
+# OpenShift using
 
 ## Build from scratch
 
