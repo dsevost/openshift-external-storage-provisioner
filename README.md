@@ -8,8 +8,8 @@ OpenShift using:
 
 oc new-project external-storage-provisioner-builder
 
-oc new-build \
-    --name=golang-s2i \
+oc new-build \ +
+    --name=golang-s2i \ +
     https://github.com/dsevost/golang-s2i
 
 oc new-build \
