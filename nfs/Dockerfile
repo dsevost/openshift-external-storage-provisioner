@@ -13,6 +13,7 @@ RUN \
 	jemalloc \
 	libnfsidmap \
 	nfs-ganesha \
+	nfs-ganesha-vfs \
 	nfs-utils \
 	rpcbind \
 	xfsprogs \
