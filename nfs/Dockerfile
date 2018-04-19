@@ -6,12 +6,13 @@ MAINTAINER $MNT
 
 ARG YUM=dnf
 
+#	dbus-x11 \
 RUN \
     $YUM install -y --setopt=tsflags=nodocs \
-	dbus-x11 \
 	hostname \
 	jemalloc \
 	libnfsidmap \
+	nfs-ganesha \
 	nfs-utils \
 	rpcbind \
 	xfsprogs \

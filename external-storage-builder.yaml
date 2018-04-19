@@ -229,13 +229,14 @@ objects:
     strategy:
       type: Recreate
     serviceAccount: nfs-provisioner
-    nodeSelector:
-      nfs-provisioner: node01
     template:
       metadata:
         labels:
           app: nfs-provisioner
       spec:
+        serviceAccount: nfs-provisioner
+        nodeSelector:
+          nfsProvisioner: node01
         containers:
         - args:
           - -provisioner=example.com/nfs
