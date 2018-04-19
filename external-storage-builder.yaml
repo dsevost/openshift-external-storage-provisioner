@@ -134,6 +134,7 @@ objects:
     source:
       dockerfile: |-
         FROM fake-repo
+        ENTRYPOINT ["/nfs-provisioner"]
         COPY nfs-provisioner /
       images:
       - from:
