@@ -5,27 +5,29 @@ metadata:
 parameters:
 - name: NFS_PROVISIONER_NAME
   value: example.com/nfs
-- name: NFS_PROVISIONER_NODE_SELECTOR
-  value: "nfsProvisioner: infra01"
+- name: NFS_PROVISIONER_NODE_SELECTOR_LABEL
+  value: nfsProvisioner
+- name: NFS_PROVISIONER_NODE_SELECTOR_VALUE
+  value: infra01
 - name: NFS_PROVISIONER_HOST_PATH
   value: "/pools/store01/volumes/provision/nfs"
 - name: NFS_PROVISIONER_IMAGE_NAME
-  value: nfs-provosioner
+  value: nfs-provisioner
 - name: NFS_PROVISIONER_IMAGE_TAG
   value: latest
 - name: NFS_PROVISIONER_IMAGE_NAMESPACE
-  external-storage-builder
+  value: external-storage-provisioner-builder
 objects:
 - apiVersion: v1
   kind: ImageStream
   metadata:
     labels:
-      build: nfs-provisioner
+      app: nfs-provisioner
     name: nfs-provisioner
   spec:
     tags:
     - from:
-        kind: ${NFS_PROVISIONER_IMAGE_NAME}
+        kind: ImageStreamTag
         name: ${NFS_PROVISIONER_IMAGE_NAME}:${NFS_PROVISIONER_IMAGE_TAG}
         namespace: ${NFS_PROVISIONER_IMAGE_NAMESPACE}
       name: latest
@@ -60,6 +62,8 @@ objects:
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
+    labels:
+      app: nfs-provisioner
     name: nfs-provisioner
   spec:
     replicas: 1
@@ -68,7 +72,10 @@ objects:
     strategy:
       type: Recreate
     triggers:
-    - imageChange:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - nfs-provisioner
         from:
           kind: ImageStreamTag
           name: nfs-provisioner:latest
@@ -81,7 +88,7 @@ objects:
       spec:
         serviceAccount: nfs-provisioner
         nodeSelector:
-          ${NFS_PROVISIONER_NODE_SELECTOR}
+          ${NFS_PROVISIONER_NODE_SELECTOR_LABEL}: ${NFS_PROVISIONER_NODE_SELECTOR_VALUE}
         containers:
         - args:
           - -provisioner=${NFS_PROVISIONER_NAME}
@@ -98,7 +105,7 @@ objects:
               fieldRef:
                 apiVersion: v1
                 fieldPath: metadata.namespace
-          image: "nfs-provisioner:latest"
+          image: " "
           imagePullPolicy: IfNotPresent
           name: nfs-provisioner
           ports:
@@ -114,7 +121,13 @@ objects:
           - containerPort: 111
             name: rpcbind-udp
             protocol: UDP
-          resources: {}
+          resources:
+            limits:
+              cpu: 300m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
           securityContext:
             capabilities:
               add:
