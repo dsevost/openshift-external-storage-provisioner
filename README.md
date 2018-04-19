@@ -79,3 +79,18 @@ $ oc project openshift-external-storage-provisioner
 $ oc create -f \
     https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/external-storage.yaml
 ```
+
+## Changing default storage class
+Run from cluster admin role
+
+```console
+$ oc get sc
+
+$ oc annotate sc example-nfs --overwrite 'storageclass.kubernetes.io/is-default-class'='true'
+```
+
+Switch back to non-default storage class
+
+```console
+$ oc annotate sc example-nfs --overwrite 'storageclass.kubernetes.io/is-default-class'='false'
+```
