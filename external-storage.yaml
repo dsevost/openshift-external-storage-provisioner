@@ -1,0 +1,137 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: external-storage
+parameters:
+- name: NFS_PROVISIONER_NAME
+  value: example.com/nfs
+- name: NFS_PROVISIONER_NODE_SELECTOR
+  value: "nfsProvisioner: infra01"
+- name: NFS_PROVISIONER_HOST_PATH
+  value: "/pools/store01/volumes/provision/nfs"
+- name: NFS_PROVISIONER_IMAGE_NAME
+  value: nfs-provosioner
+- name: NFS_PROVISIONER_IMAGE_TAG
+  value: latest
+- name: NFS_PROVISIONER_IMAGE_NAMESPACE
+  external-storage-builder
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      build: nfs-provisioner
+    name: nfs-provisioner
+  spec:
+    tags:
+    - from:
+        kind: ${NFS_PROVISIONER_IMAGE_NAME}
+        name: ${NFS_PROVISIONER_IMAGE_NAME}:${NFS_PROVISIONER_IMAGE_TAG}
+        namespace: ${NFS_PROVISIONER_IMAGE_NAMESPACE}
+      name: latest
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: nfs-provisioner
+    name: nfs-provisioner
+  spec:
+    ports:
+    - name: nfs
+      port: 2049
+      protocol: TCP
+      targetPort: 2049
+    - name: mountd
+      port: 20048
+      protocol: TCP
+      targetPort: 20048
+    - name: rpcbind
+      port: 111
+      protocol: TCP
+      targetPort: 111
+    - name: rpcbind-udp
+      port: 111
+      protocol: UDP
+      targetPort: 111
+    selector:
+      app: nfs-provisioner
+    sessionAffinity: None
+    type: ClusterIP
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    name: nfs-provisioner
+  spec:
+    replicas: 1
+    selector:
+      app: nfs-provisioner
+    strategy:
+      type: Recreate
+    triggers:
+    - imageChange:
+        from:
+          kind: ImageStreamTag
+          name: nfs-provisioner:latest
+      type: ImageChange
+    - type: ConfigChange
+    template:
+      metadata:
+        labels:
+          app: nfs-provisioner
+      spec:
+        serviceAccount: nfs-provisioner
+        nodeSelector:
+          ${NFS_PROVISIONER_NODE_SELECTOR}
+        containers:
+        - args:
+          - -provisioner=${NFS_PROVISIONER_NAME}
+          env:
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          - name: SERVICE_NAME
+            value: nfs-provisioner
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          image: "nfs-provisioner:latest"
+          imagePullPolicy: IfNotPresent
+          name: nfs-provisioner
+          ports:
+          - containerPort: 2049
+            name: nfs
+            protocol: TCP
+          - containerPort: 20048
+            name: mountd
+            protocol: TCP
+          - containerPort: 111
+            name: rpcbind
+            protocol: TCP
+          - containerPort: 111
+            name: rpcbind-udp
+            protocol: UDP
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+              - DAC_READ_SEARCH
+              - SYS_RESOURCE
+          volumeMounts:
+          - mountPath: /export
+            name: export-volume
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        securityContext: {}
+        volumes:
+        - hostPath:
+            path: ${NFS_PROVISIONER_HOST_PATH}
+            type: ""
+          name: export-volume
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: nfs-provisioner
