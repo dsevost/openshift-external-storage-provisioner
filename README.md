@@ -37,10 +37,12 @@ $ oc policy add-role-to-user \
 ```console
 $ oc new-project external-storage-provisioner-builder
 
-$ oc create -f https://raw.githubusercontent.com/dsevost/golang-s2i/master/golang-s2i-bc.yaml
+$ oc create -f \
+  https://raw.githubusercontent.com/dsevost/golang-s2i/master/golang-s2i-bc.yaml
 
-$ oc create -f https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/external-storage-builder.yaml
-`` 
+$ oc create -f \
+  https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/external-storage-builder.yaml
+```
 
 ## Running provisioner
 
@@ -52,13 +54,20 @@ myself
 Run from cluster admin role
 
 ```console
-$ oc create -f https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/cluster-objects.yaml
+$ oc create -f \
+  https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/cluster-objects.yaml
 
-$ oc adm new-project external-storage-provisioner --node-selector='' --admin=myself
+$ oc adm new-project external-storage-provisioner \
+    --node-selector='' \
+    --admin=myself
 
-$ oc adm policy add-scc-to-user nfs-provisioner -z nfs-provisioner -n external-storage-provisioner
+$ oc adm policy add-scc-to-user nfs-provisioner \
+    -z nfs-provisioner \
+    -n external-storage-provisioner
 
-$ oc adm policy add-cluster-role-to-user nfs-provisioner-runner -z nfs-provisioner -n external-storage-provisioner
+$ oc adm policy add-cluster-role-to-user nfs-provisioner-runner \
+    -z nfs-provisioner \
+    -n external-storage-provisioner
 ```
 
 Switch back to ordinary user
@@ -66,5 +75,6 @@ Switch back to ordinary user
 ```console
 $ oc project openshift-external-storage-provisioner
 
-$ oc create -f https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/external-storage.yaml
+$ oc create -f \
+    https://raw.githubusercontent.com/dsevost/openshift-external-storage-provisioner/master/external-storage.yaml
 ```
