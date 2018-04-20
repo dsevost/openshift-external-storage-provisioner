@@ -187,31 +187,3 @@ objects:
         kind: DockerImage
         name: ${BASE_IMAGE}:${BASE_IMAGE_TAG}
       name: ${BASE_IMAGE_TAG}
-- apiVersion: v1
-  kind: Service
-  metadata:
-    labels:
-      app: nfs-provisioner
-    name: nfs-provisioner
-  spec:
-    ports:
-    - name: nfs
-      port: 2049
-      protocol: TCP
-      targetPort: 2049
-    - name: mountd
-      port: 20048
-      protocol: TCP
-      targetPort: 20048
-    - name: rpcbind
-      port: 111
-      protocol: TCP
-      targetPort: 111
-    - name: rpcbind-udp
-      port: 111
-      protocol: UDP
-      targetPort: 111
-    selector:
-      app: nfs-provisioner
-    sessionAffinity: None
-    type: ClusterIP
