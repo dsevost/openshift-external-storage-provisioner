@@ -134,8 +134,8 @@ objects:
     source:
       dockerfile: |-
         FROM fake-repo
-        ENTRYPOINT ["/nfs-provisioner"]
-        COPY nfs-provisioner /
+        ENTRYPOINT ["/usr/local/sbin/nfs-provisioner"]
+        COPY nfs-provisioner /usr/local/sbin/
       images:
       - from:
           kind: ImageStreamTag
